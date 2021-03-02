@@ -380,6 +380,7 @@ public class ReplicaPreparedStatement extends ReplicaStatement implements Prepar
         if (currentStatement != null) {
             return currentStatement.getParameterMetaData();
         } else {
+            //todo writeStatment not always is used for write SQL queries
             return getWriteStatement(new RouteDecisionBuilder(RW_API_CALL)).getParameterMetaData();
         }
     }

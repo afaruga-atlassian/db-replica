@@ -25,7 +25,8 @@ public class ReplicaStatement implements Statement {
     private final ReplicaConsistency consistency;
     private final DatabaseCall databaseCall;
     private boolean isWriteOperation = true;
-    private final SqlFunction sqlFunction;
+
+    private SQLOpeartionType sqlOpeartionType;
     private final DecisionAwareReference<Statement> readStatement = new DecisionAwareReference<Statement>() {
         @Override
         public Statement create() throws Exception {
@@ -54,13 +55,13 @@ public class ReplicaStatement implements Statement {
         this.resultSetType = resultSetType;
         this.resultSetConcurrency = resultSetConcurrency;
         this.resultSetHoldability = resultSetHoldability;
-        this.sqlFunction = new SqlFunction(readOnlyFunctions);
+        this.sqlOpeartionType =  new SQLOpeartionType(new SqlFunction(readOnlyFunctions));;
     }
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
         checkClosed();
-        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(READ_OPERATION).sql(sql);
+        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(READ_OPERATION).sql(sql).isWrite(false);
         final Statement statement = getReadStatement(decisionBuilder);
         return execute(() -> statement.executeQuery(sql), decisionBuilder.build());
     }
@@ -68,7 +69,7 @@ public class ReplicaStatement implements Statement {
     @Override
     public int executeUpdate(String sql) throws SQLException {
         checkClosed();
-        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql);
+        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql).isWrite(true);
         final Statement statement = getWriteStatement(decisionBuilder);
         return execute(
             () -> statement.executeUpdate(sql),
@@ -94,7 +95,8 @@ public class ReplicaStatement implements Statement {
     @Override
     public int getMaxFieldSize() throws SQLException {
         checkClosed();
-        return getWriteStatement(new RouteDecisionBuilder(RW_API_CALL)).getMaxFieldSize();
+        //todo this looks to be READ operation but run on write statement?
+        return getWriteStatement(new RouteDecisionBuilder(RW_API_CALL).isWrite(false)).getMaxFieldSize();
     }
 
     @Override
@@ -108,7 +110,8 @@ public class ReplicaStatement implements Statement {
     @Override
     public int getMaxRows() throws SQLException {
         checkClosed();
-        return getWriteStatement(new RouteDecisionBuilder(RW_API_CALL)).getMaxRows();
+        //todo this looks to be READ operation but run on write statement?
+        return getWriteStatement(new RouteDecisionBuilder(RW_API_CALL).isWrite(false)).getMaxRows();
     }
 
     @Override
@@ -176,11 +179,12 @@ public class ReplicaStatement implements Statement {
         checkClosed();
         final RouteDecisionBuilder decisionBuilder;
         final Statement statement;
-        if (sql.startsWith("set")) {
-            decisionBuilder = new RouteDecisionBuilder(READ_OPERATION).sql(sql);
+        if (sqlOpeartionType.isSQLSet(sql)) {
+            decisionBuilder = new RouteDecisionBuilder(READ_OPERATION).sql(sql).isWrite(false);
             statement = getReadStatement(decisionBuilder);
         } else {
             decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql);
+            //todo not sure whether this is write sql, it's based on hidden contract that  execute(String sql) is run only by Write SQL
             statement = getWriteStatement(decisionBuilder);
         }
         return execute(
@@ -273,6 +277,7 @@ public class ReplicaStatement implements Statement {
     public int[] executeBatch() throws SQLException {
         checkClosed();
         final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL);
+        //todo is it write or read?
         final Statement statement = getWriteStatement(decisionBuilder);
         return execute(statement::executeBatch, decisionBuilder.build());
     }
@@ -280,6 +285,7 @@ public class ReplicaStatement implements Statement {
     @Override
     public Connection getConnection() throws SQLException {
         checkClosed();
+        //todo is it write or read?
         return connectionProvider.getWriteConnection(new RouteDecisionBuilder(Reason.RW_API_CALL));
     }
 
@@ -309,7 +315,7 @@ public class ReplicaStatement implements Statement {
     @Override
     public int executeUpdate(String sql, int[] columnIndexes) throws SQLException {
         checkClosed();
-        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql);
+        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql).isWrite(true);
         final Statement statement = getWriteStatement(decisionBuilder);
         return execute(
             () -> statement.executeUpdate(sql, columnIndexes),
@@ -320,7 +326,7 @@ public class ReplicaStatement implements Statement {
     @Override
     public int executeUpdate(String sql, String[] columnNames) throws SQLException {
         checkClosed();
-        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql);
+        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql).isWrite(true);
         final Statement statement = getWriteStatement(decisionBuilder);
         return execute(
             () -> statement.executeUpdate(sql, columnNames),
@@ -331,7 +337,8 @@ public class ReplicaStatement implements Statement {
     @Override
     public boolean execute(String sql, int autoGeneratedKeys) throws SQLException {
         checkClosed();
-        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql);
+        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql).isWrite(true);
+        //todo is it write or read?
         final Statement statement = getWriteStatement(decisionBuilder);
         return execute(
             () -> statement.execute(sql, autoGeneratedKeys),
@@ -342,7 +349,7 @@ public class ReplicaStatement implements Statement {
     @Override
     public boolean execute(String sql, int[] columnIndexes) throws SQLException {
         checkClosed();
-        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql);
+        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql).isWrite(true);
         final Statement state = getWriteStatement(decisionBuilder);
         return execute(
             () -> state.execute(sql, columnIndexes),
@@ -353,11 +360,11 @@ public class ReplicaStatement implements Statement {
     @Override
     public boolean execute(String sql, String[] columnNames) throws SQLException {
         checkClosed();
-        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql);
+        final RouteDecisionBuilder decisionBuilder = new RouteDecisionBuilder(RW_API_CALL).sql(sql).isWrite(true);
         final Statement statement = getWriteStatement(decisionBuilder);
         return execute(
             () -> statement.execute(sql, columnNames),
-            decisionBuilder.build()
+            decisionBuilder.build() //todo this looks like best place to generically state whether query is Write/Read opeariton
         );
     }
 
@@ -554,41 +561,35 @@ public class ReplicaStatement implements Statement {
 
     public Statement getReadStatement(RouteDecisionBuilder decisionBuilder) {
         if (connectionProvider.getState().equals(MAIN)) {
-            decisionBuilder.reason(MAIN_CONNECTION_REUSE);
+            decisionBuilder.reason(MAIN_CONNECTION_REUSE);//.isWrite(true) ? ;
+            // sth was readonly, but need to happen on Main because of inconsistency
+            // I think we don't have info whether this is read  / write
             connectionProvider.getStateDecision().ifPresent(decisionBuilder::cause);
+
+
             return prepareWriteStatement(decisionBuilder);
         }
         final String sql = decisionBuilder.getSql();
-        isWriteOperation = sqlFunction.isFunctionCall(sql) || isUpdate(sql) || isDelete(sql);
+        isWriteOperation = sqlOpeartionType.isWriteOpearation(sql);
         if (isWriteOperation) {
-            decisionBuilder.reason(WRITE_OPERATION);
+            decisionBuilder.reason(WRITE_OPERATION).isWrite(true);
             return prepareWriteStatement(decisionBuilder);
         }
 
-        if (isSelectForUpdate(sql)) {
-            decisionBuilder.reason(LOCK);
+        if (sqlOpeartionType.isSelectForUpdate(sql)) {
+            decisionBuilder.reason(LOCK).isWrite(true);
             return prepareWriteStatement(decisionBuilder);
         }
 
+        // todo what should happen here UNKNOWN SQL operation type ?
         setCurrentStatement(getCurrentStatement() != null ? getCurrentStatement() : readStatement.get(decisionBuilder));
         performOperations();
         return getCurrentStatement();
     }
 
-    private boolean isSelectForUpdate(String sql) {
-        return sql != null && (sql.endsWith("for update") || sql.endsWith("FOR UPDATE"));
-    }
-
-    private boolean isUpdate(String sql) {
-        return sql != null && (sql.startsWith("update") || sql.startsWith("UPDATE"));
-    }
-
-    private boolean isDelete(String sql) {
-        return sql != null && (sql.startsWith("delete") || sql.startsWith("DELETE"));
-    }
-
     protected Statement getWriteStatement(RouteDecisionBuilder decisionBuilder) {
         isWriteOperation = true;
+        decisionBuilder.isWrite(true);
         return prepareWriteStatement(decisionBuilder);
     }
 

@@ -9,6 +9,8 @@ public final class RouteDecisionBuilder {
     private String sql = null;
     private Reason reason;
     private RouteDecision cause = null;
+    private Boolean isWrite  = null;
+
 
     public RouteDecisionBuilder(Reason reason) {
         this.reason = reason;
@@ -29,12 +31,17 @@ public final class RouteDecisionBuilder {
         return this;
     }
 
+    public RouteDecisionBuilder isWrite(final boolean isWrite) {
+        this.isWrite = isWrite;
+        return this;
+    }
+
     public String getSql() {
         return sql;
     }
 
     public RouteDecision build() {
-        return new RouteDecision(sql, reason, cause);
+        return new RouteDecision(sql, reason, cause, isWrite);
     }
 
     @Override

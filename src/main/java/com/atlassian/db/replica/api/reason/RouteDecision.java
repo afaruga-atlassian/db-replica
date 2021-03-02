@@ -14,11 +14,21 @@ public final class RouteDecision {
     private final Reason reason;
     private final String sql;
     private final RouteDecision cause;
+    private final Boolean isWrite;
 
     public RouteDecision(String sql, Reason reason, RouteDecision cause) {
         this.sql = sql;
         this.reason = reason;
         this.cause = cause;
+        this.isWrite = null;
+    }
+
+    public RouteDecision(String sql, Reason reason, RouteDecision cause, Boolean isWrite) {
+        this.sql = sql;
+        this.reason = reason;
+        this.cause = cause;
+        this.isWrite = isWrite;
+
     }
 
     /**
@@ -42,13 +52,8 @@ public final class RouteDecision {
         return Optional.ofNullable(cause);
     }
 
-    /**
-     * @return information whether reason was caused by write sql operation.
-     */
-    public boolean isWrite(){
-        return WRITE_OPERATION.equals(reason) ||
-                LOCK.equals(reason) ||
-                RW_API_CALL.equals(reason);
+    public Boolean getWrite() {
+        return isWrite;
     }
 
     /**
@@ -58,21 +63,22 @@ public final class RouteDecision {
         return reason.isRunOnMain();
     }
 
-
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         RouteDecision that = (RouteDecision) o;
-        return Objects.equals(reason, that.reason) && Objects.equals(
-                sql,
-                that.sql
-        ) && Objects.equals(cause, that.cause);
+        return Objects.equals(reason, that.reason) && Objects.equals(sql, that.sql) && Objects
+                .equals(cause, that.cause) && Objects.equals(isWrite, that.isWrite);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(reason, sql, cause);
+        return Objects.hash(reason, sql, cause, isWrite);
     }
 
     @Override
@@ -81,6 +87,7 @@ public final class RouteDecision {
                 "reason=" + reason +
                 ", sql='" + sql + '\'' +
                 ", cause=" + cause +
+                ", isWrite=" + isWrite +
                 '}';
     }
 }
