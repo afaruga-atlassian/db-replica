@@ -7,10 +7,10 @@ It can be used locally or in CI.
 
 ## GitHub Actions
 GitHub Actions use Gradle to release the library.
-A release build can be [triggered manually by "workflow dispatch"](trigger-gha-release.mp4).
+ 1. A release build can be [triggered manually by "workflow dispatch"](trigger-gha-release.mp4).
 
 ## Current version in source
-After releasing a new version:
-* the [changelog](../../CHANGELOG.md) needs a new entry
-* the [readme](../../README.md) installation section needs a new Maven version
-* clean up internal `compatibleWithPreviousVersion` usages
+ 2. After releasing a new version, mark release commit, from a new branch: mark-release-X.X.X:
+ 3. the [changelog](../../CHANGELOG.md) needs a new entry
+ 4. the [readme](../../README.md) installation section needs a new Maven version
+ 5. clean up internal `compatibleWithPreviousVersion` usages
